@@ -2,7 +2,7 @@
 
 ## Overview
 
-An address generator that randomly selects and generates a given number of addresses from an US state. Data comes from Kaggle's US-West open address. This is a desktop app made via Python and Tkinter.
+An address generator that randomly selects and generates a given number of addresses from one of the 13 US state in the West. All data comes from [https://www.kaggle.com/openaddresses/openaddresses-us-west](https://www.kaggle.com/openaddresses/openaddresses-us-west). This is a desktop app made via Python and Tkinter.
 
 ## Current Features
 
