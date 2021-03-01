@@ -96,7 +96,7 @@ input_label = tk.Label(frame1, text="Your selected state is:")
 input_label.pack()
 
 
-# Frame 2: buttons for generate results, export results, clear input
+# Frame 2: buttons for generate results, export results, clear input, send request to another app
 # button 1: generate result
 # event for generating result button
 
@@ -146,9 +146,6 @@ def read_csv():
     return csv_file
 
 csv_file = read_csv()
-
-
-
 
 
 def generate_results():
@@ -210,6 +207,7 @@ def wait_for_results():
             msg = conn.recv()
             if msg == 'close':
                 conn.close()
+                listener.close()
                 receiving = False
                 break
             else:
@@ -247,7 +245,6 @@ def clearInput():
     ent_num.delete(0, 'end')  # clear number entry box
     text_area.delete("1.0", "end")  # clear output result text box
 
-
 clear_button = tk.Button(
     frame2,
     text="Clear and Restart",
@@ -266,13 +263,60 @@ output_label.pack()
 
 text_area = scrolledtext.ScrolledText(frame3, height=30)
 text_area.pack()
-
 # set max displayed rows to 500
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 10)
+#wait for results first
+wait_for_results()
+
+#Frame 3: add a button to send request to population generator
+# SENT DATA: To send data to population generator with a button
+# convert csv data to json format
+def csv_to_json(csvFilePath, jsonFilePath):
+    # convert csv file to json
+    jsonArray = []
+    # get output csv
+    with open(csvFilePath, encoding='utf-8') as csvfile:
+        csvReader = csv.DictReader(csvfile)
+    for row in merged_data:
+        jsonArray.append(row)
+    # convert json array to json string
+    with open(jsonFilePath, 'w', encoding='utf-8') as jsonfile:
+        jsonString = json.dumps(jsonArray, indent=4)
+        jsonfile.write(jsonString)
+
+# Send results to population generator
+def send_results():
+    csvFilePath = r'output.csv'
+    jsonFilePath = r'output.json'
+    # convert merged_data to json format
+    json_data = csv_to_json(csvFilePath, jsonFilePath)
+    print(json_data)
+    # Connect to Population Generator:
+    connect = Client(('localhost', 6000), authkey=b'success')
+    if connect:
+        connect.send(json_data)
+        connect.send("close")
+        connect.close()
+        # Waiting for the Response
+        wait_for_results()
+    else:
+        print("Error occurred while connecting to Population Generator.")
+
+send_button = tk.Button(
+    frame3,
+    text="Send Request to Another App",
+    width=10,
+    height=5,
+    bg="white",
+    fg="green",
+    command=send_results
+)
+send_button.pack()
 
 # Run  the event loop
 window.mainloop()
+
 
 # Command line app to read input and export output
 class auto_open_csv:
@@ -366,35 +410,4 @@ obj = auto_open_csv()
 obj.auto_open_csv()
 
 
-# SENT DATA: To send data to population generator
-# convert csv data to json format
-def csv_to_json(csvFilePath, jsonFilePath):
-    # convert csv file to json
-    jsonArray = []
-    # get output csv
-    with open(csvFilePath, encoding='utf-8') as csvfile:
-        csvReader = csv.DictReader(csvfile)
-    for row in merged_data:
-        jsonArray.append(row)
-    # convert json array to json string
-    with open(jsonFilePath, 'w', encoding='utf-8') as jsonfile:
-        jsonString = json.dumps(jsonArray, indent=4)
-        jsonfile.write(jsonString)
 
-# Send results to population generator
-def send_results():
-    csvFilePath = r'output.csv'
-    jsonFilePath = r'output.json'
-    # convert merged_data to json format
-    json_data = csv_to_json(csvFilePath, jsonFilePath)
-    print(json_data)
-    # Connect to Population Generator:
-    connect = Client(('localhost', 6000), authkey=b'success')
-    if connect:
-        connect.send(json_data)
-        connect.send("close")
-        connect.close()
-        # Waiting for the Response
-        wait_for_results()
-    else:
-        print("Error occurred while connecting to Population Generator.")
