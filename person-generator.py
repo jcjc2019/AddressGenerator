@@ -8,6 +8,12 @@ import os.path
 import sys
 import csv
 
+# multiprocessing
+from multiprocessing.connection import Client
+from multiprocessing.connection import Listener
+import json
+import requests
+
 # Set GUI interface
 window = tk.Tk()
 window.title("Person Generator")
@@ -29,12 +35,13 @@ frame3 = tk.Frame(master=window, width=100, height=100)
 frame3.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
 # Frame 1: dropdown menu for state selection
-dropdown_label = tk.Label(frame1, text="Step1: Select the state from the dropdown menu below:")
+dropdown_label = tk.Label(
+    frame1, text="Step1: Select the state from the dropdown menu below:")
 dropdown_label.pack()
 
 
 def selected_state(event):
-    selected_state = clicked.get()
+    global selected_state = clicked.get()
     print(selected_state)
 
 
@@ -60,7 +67,8 @@ drop = tk.OptionMenu(frame1, clicked, *states, command=selected_state)
 drop.pack(pady=20)
 
 # Frame 1: Enter the number of addresses needed
-entry_label = tk.Label(frame1, text="Step 2: Enter the number of addresses you want to have:")
+entry_label = tk.Label(
+    frame1, text="Step 2: Enter the number of addresses you want to have:")
 entry_label.pack()
 
 ent_num = tk.Entry(frame1)
@@ -70,9 +78,11 @@ ent_num.pack(pady=20)
 def number():
     try:
         int(ent_num.get())
-        num_answer.config(text="You entered a number. Please select a state now.")
+        num_answer.config(
+            text="You entered a number. Please select a state now.")
     except ValueError:
-        num_answer.config(text="You did not enter a number. Please enter a number.")
+        num_answer.config(
+            text="You did not enter a number. Please enter a number.")
     # show text of the state input
     my_state = tk.Label(frame1, text=clicked.get())
     my_state.pack()
@@ -138,7 +148,9 @@ def read_csv():
         csv_file = "wy.csv"
     return csv_file
 
+
 csv_file = read_csv()
+
 
 def generate_results():
     # get user input
@@ -152,16 +164,16 @@ def generate_results():
 
     global merged_data
     merged_data = selected_data.assign(
-        input_state = clicked.get(),
-        input_number_to_generate= int(ent_num.get()),
-        output_content_type = "street address",
-        output_content_value = selected_data.NUMBER.astype(str) + ' ' + \
-                                                            selected_data.STREET.astype(str) + ', ' + \
-                                                            selected_data.UNIT.astype(str) + ', ' + \
-                                                            selected_data.CITY.astype(str) + ', ' +
-                                                            clicked.get() + ' ' +
-                                                            selected_data.POSTCODE.astype(str)
-                                       )
+        input_state=clicked.get(),
+        input_number_to_generate=int(ent_num.get()),
+        output_content_type="street address",
+        output_content_value=selected_data.NUMBER.astype(str) + ' ' +
+        selected_data.STREET.astype(str) + ', ' +
+        selected_data.UNIT.astype(str) + ', ' +
+        selected_data.CITY.astype(str) + ', ' +
+        clicked.get() + ' ' +
+        selected_data.POSTCODE.astype(str)
+    )
     # remove previously column
     merged_data.drop(['NUMBER',
                       'STREET',
@@ -175,6 +187,7 @@ def generate_results():
     print(merged_data)
     text_area.insert("1.0", merged_data)
     return merged_data
+
 
 generate_button = tk.Button(
     frame2,
@@ -196,7 +209,8 @@ def export_results():
     # message to allow users to know the file is ready.
     file_exists = os.path.exists('output.csv')
     if file_exists == True:
-        messagebox.showinfo("CSV File Ready", "Congrats! Your CSV file is now in the same directory as the program.")
+        messagebox.showinfo(
+            "CSV File Ready", "Congrats! Your CSV file is now in the same directory as the program.")
 
 
 export_button = tk.Button(
@@ -216,6 +230,7 @@ def clearInput():
     ent_num.delete(0, 'end')  # clear number entry box
     text_area.delete("1.0", "end")  # clear output result text box
 
+
 clear_button = tk.Button(
     frame2,
     text="Clear and Restart",
@@ -228,7 +243,8 @@ clear_button = tk.Button(
 clear_button.grid(row=0, column=2, sticky="nsew")
 
 # Frame 3: output area, use rolledtext
-output_label = tk.Label(frame3, text="Here are the results. Max displayed rows: 500. Export to see more rows).")
+output_label = tk.Label(
+    frame3, text="Here are the results. Max displayed rows: 500. Export to see more rows).")
 output_label.pack()
 
 text_area = scrolledtext.ScrolledText(frame3, height=30)
@@ -241,15 +257,17 @@ pd.set_option('display.max_columns', 10)
 # Run  the event loop
 window.mainloop()
 
-#Command line app to read input and export output
+# Command line app to read input and export output
+
+
 class auto_open_csv:
     def auto_open_csv(self):
-        #open input.csv
+        # open input.csv
         inputFile = open(sys.argv[1], 'rb')
         # outputFile = open(sys.argv[2], 'wb')
         df = pd.read_csv(inputFile)
         print("Import input.csv")
-        #get values of input state and numbers from input.csv
+        # get values of input state and numbers from input.csv
         state = df['input_state'][0]
         num = df['input_number_to_generate'][0]
         global correct_csv
@@ -293,41 +311,78 @@ class auto_open_csv:
             # open wy csv
             correct_csv = "wy.csv"
         results = pd.read_csv(correct_csv, usecols=['NUMBER',
-                                              'STREET',
-                                              'UNIT',
-                                              'CITY',
-                                              'POSTCODE'])
+                                                    'STREET',
+                                                    'UNIT',
+                                                    'CITY',
+                                                    'POSTCODE'])
         print("Randomly selecting data...")
-        #copy code from above generate function
+        # copy code from above generate function
         selected_data = results.sample(num)
         global auto_data
         auto_data = selected_data.assign(
             input_state=state,
             input_number_to_generate=num,
             output_content_type="street address",
-            output_content_value=selected_data.NUMBER.astype(str) + ' ' + \
-                                 selected_data.STREET.astype(str) + ', ' + \
-                                 selected_data.UNIT.astype(str) + ', ' + \
-                                 selected_data.CITY.astype(str) + ', ' +
-                                 clicked.get() + ' ' +
-                                 selected_data.POSTCODE.astype(str)
+            output_content_value=selected_data.NUMBER.astype(str) + ' ' +
+            selected_data.STREET.astype(str) + ', ' +
+            selected_data.UNIT.astype(str) + ', ' +
+            selected_data.CITY.astype(str) + ', ' +
+            clicked.get() + ' ' +
+            selected_data.POSTCODE.astype(str)
         )
         # remove previously column
         auto_data.drop(['NUMBER',
-                          'STREET',
-                          'UNIT',
-                          'CITY',
-                          'POSTCODE'],
-                         inplace=True, axis=1)
+                        'STREET',
+                        'UNIT',
+                        'CITY',
+                        'POSTCODE'],
+                       inplace=True, axis=1)
         # TO BE FIXED: remove nan from each address
         # drop index number
         auto_data.reset_index(drop=True, inplace=True)
         print(auto_data)
         print("Finished selecting data.")
-        #copy from above export function
+        # copy from above export function
         outputFile = auto_data.to_csv("output.csv", index=False)
         # writer = csv.writer(outputFile)
         print("Your CSV file is ready in the same directory as program.")
+
+
 obj = auto_open_csv()
 obj.auto_open_csv()
 
+
+# To send data to population generator
+# convert csv data to json format
+def csv_to_json(csvFilePath, jsonFilePath):
+    # convert csv file to json
+    jsonArray = []
+
+    # get output csv
+    with open(csvFilePath, encoding='utf-8') as csvfile:
+        csvReader = csv.DictReader(csvfile)
+    for row in merged_data:
+        jsonArray.append(row)
+    # convert json array to json string
+    with open(jsonFilePath, 'w', encoding='utf-8') as jsonfile:
+        jsonString = json.dumps(jsonArray, indent=4)
+        jsonfile.write(jsonString)
+
+# Send results to population generator
+
+
+def send_results():
+    csvFilePath = r 'output.csv'
+    jsonFilePath = r 'output.json'
+    # convert merged_data to json format
+    csv_to_json(csvFilePath, jsonFilePath)
+    # Connect to Population Generator:
+    connect = Client(('localhost', 6000), authkey=b'success')
+    if connect:
+        connect.send(json_data)
+        connect.send("close")
+        connect.close()
+        # Waiting for the Response
+        wait_for_response()
+    else:
+        print("Error occurred while conencting to Population Generator.")
