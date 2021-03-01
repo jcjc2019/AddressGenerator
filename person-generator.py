@@ -41,9 +41,8 @@ dropdown_label.pack()
 
 
 def selected_state(event):
-    global selected_state = clicked.get()
+    selected_state = clicked.get()
     print(selected_state)
-
 
 states = [
     "Alaska",
@@ -71,9 +70,9 @@ entry_label = tk.Label(
     frame1, text="Step 2: Enter the number of addresses you want to have:")
 entry_label.pack()
 
+
 ent_num = tk.Entry(frame1)
 ent_num.pack(pady=20)
-
 
 def number():
     try:
@@ -152,8 +151,28 @@ def read_csv():
 csv_file = read_csv()
 
 
+#Get a number from Population generator as the input number
+
+def wait_for_number():
+    """Connect to the Client as a listener and wait for the number (1% of the population) to be sent"""
+    listener = Listener(('localhost', 6000), authkey=b'success')
+    receiving = True
+    while receiving:
+        conn = listener.accept()
+        while True:
+            msg = conn.recv()
+            if msg == 'close':
+                conn.close()
+                receiving = False
+                break
+            else:
+                global returned_data
+                returned_data = int(msg)
+                print(returned_data)
+    listener.close()
+
+
 def generate_results():
-    # get user input
     selected_num = int(ent_num.get())
     data = pd.read_csv(csv_file, usecols=['NUMBER',
                                           'STREET',
@@ -161,7 +180,6 @@ def generate_results():
                                           'CITY',
                                           'POSTCODE'])
     selected_data = data.sample(selected_num)
-
     global merged_data
     merged_data = selected_data.assign(
         input_state=clicked.get(),
@@ -258,7 +276,6 @@ pd.set_option('display.max_columns', 10)
 window.mainloop()
 
 # Command line app to read input and export output
-
 
 class auto_open_csv:
     def auto_open_csv(self):
@@ -357,7 +374,6 @@ obj.auto_open_csv()
 def csv_to_json(csvFilePath, jsonFilePath):
     # convert csv file to json
     jsonArray = []
-
     # get output csv
     with open(csvFilePath, encoding='utf-8') as csvfile:
         csvReader = csv.DictReader(csvfile)
@@ -369,13 +385,12 @@ def csv_to_json(csvFilePath, jsonFilePath):
         jsonfile.write(jsonString)
 
 # Send results to population generator
-
-
 def send_results():
-    csvFilePath = r 'output.csv'
-    jsonFilePath = r 'output.json'
+    csvFilePath = r'output.csv'
+    jsonFilePath = r'output.json'
     # convert merged_data to json format
-    csv_to_json(csvFilePath, jsonFilePath)
+    json_data = csv_to_json(csvFilePath, jsonFilePath)
+    print(json_data)
     # Connect to Population Generator:
     connect = Client(('localhost', 6000), authkey=b'success')
     if connect:
@@ -385,4 +400,5 @@ def send_results():
         # Waiting for the Response
         wait_for_response()
     else:
-        print("Error occurred while conencting to Population Generator.")
+        print("Error occurred while connecting to Population Generator.")
+
