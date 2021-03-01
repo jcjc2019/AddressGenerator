@@ -39,7 +39,6 @@ dropdown_label = tk.Label(
     frame1, text="Step1: Select the state from the dropdown menu below:")
 dropdown_label.pack()
 
-
 def selected_state(event):
     selected_state = clicked.get()
     print(selected_state)
@@ -99,7 +98,6 @@ input_label.pack()
 
 # Frame 2: buttons for generate results, export results, clear input
 # button 1: generate result
-
 # event for generating result button
 
 def read_csv():
@@ -147,29 +145,10 @@ def read_csv():
         csv_file = "wy.csv"
     return csv_file
 
-
 csv_file = read_csv()
 
 
-#Get a number from Population generator as the input number
 
-def wait_for_number():
-    """Connect to the Client as a listener and wait for the number (1% of the population) to be sent"""
-    listener = Listener(('localhost', 6000), authkey=b'success')
-    receiving = True
-    while receiving:
-        conn = listener.accept()
-        while True:
-            msg = conn.recv()
-            if msg == 'close':
-                conn.close()
-                receiving = False
-                break
-            else:
-                global returned_data
-                returned_data = int(msg)
-                print(returned_data)
-    listener.close()
 
 
 def generate_results():
@@ -206,7 +185,6 @@ def generate_results():
     text_area.insert("1.0", merged_data)
     return merged_data
 
-
 generate_button = tk.Button(
     frame2,
     text="Generate Results Now!",
@@ -219,8 +197,30 @@ generate_button = tk.Button(
 generate_button.grid(row=0, column=0, sticky="nsew")
 
 
-# button 2: export results to csv with designated headers
+# RECEIVE DATA:
+# To receive output from the population generator
+# Get population number from Population generator and add an row to my output file
+def wait_for_results():
+    """Connect to the Client as a listener and wait for the number (1% of the population) to be sent"""
+    listener = Listener(('localhost', 6000), authkey=b'success')
+    receiving = True
+    while receiving:
+        conn = listener.accept()
+        while True:
+            msg = conn.recv()
+            if msg == 'close':
+                conn.close()
+                receiving = False
+                break
+            else:
+                returned_data = str(msg)
+                print(returned_data)
+                #simply print out returned data in text area.
+                text_area.insert("1.0", "Data from Population Generator is:" + returned_data)
+                return returned_data
+    listener.close()
 
+# button 2: export results to csv with designated headers
 def export_results():
     # create a new output csv file with new headers
     merged_data.to_csv("output.csv", index=False)
@@ -229,7 +229,6 @@ def export_results():
     if file_exists == True:
         messagebox.showinfo(
             "CSV File Ready", "Congrats! Your CSV file is now in the same directory as the program.")
-
 
 export_button = tk.Button(
     frame2,
@@ -276,7 +275,6 @@ pd.set_option('display.max_columns', 10)
 window.mainloop()
 
 # Command line app to read input and export output
-
 class auto_open_csv:
     def auto_open_csv(self):
         # open input.csv
@@ -361,7 +359,6 @@ class auto_open_csv:
         print("Finished selecting data.")
         # copy from above export function
         outputFile = auto_data.to_csv("output.csv", index=False)
-        # writer = csv.writer(outputFile)
         print("Your CSV file is ready in the same directory as program.")
 
 
@@ -369,7 +366,7 @@ obj = auto_open_csv()
 obj.auto_open_csv()
 
 
-# To send data to population generator
+# SENT DATA: To send data to population generator
 # convert csv data to json format
 def csv_to_json(csvFilePath, jsonFilePath):
     # convert csv file to json
@@ -398,7 +395,6 @@ def send_results():
         connect.send("close")
         connect.close()
         # Waiting for the Response
-        wait_for_response()
+        wait_for_results()
     else:
         print("Error occurred while connecting to Population Generator.")
-
