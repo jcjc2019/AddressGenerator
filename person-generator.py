@@ -7,6 +7,7 @@ import pandas as pd
 import os.path
 import sys
 import csv
+import threading
 
 # multiprocessing
 from multiprocessing.connection import Client
@@ -14,34 +15,8 @@ from multiprocessing.connection import Listener
 import json
 import requests
 
-# Set GUI interface
-window = tk.Tk()
-window.title("Person Generator")
-# Set app title
-title = tk.Label(
-    text="Welcome to Person Generator!",
-    foreground="white",
-    background="black")
-title.pack()
 
-# Divide the window into three sections
-frame1 = tk.Frame(master=window, width=100, height=100, bg="red")
-frame1.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
-
-frame2 = tk.Frame(master=window, width=100, height=100, bg="yellow")
-frame2.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
-
-frame3 = tk.Frame(master=window, width=100, height=100)
-frame3.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
-
-# Frame 1: dropdown menu for state selection
-dropdown_label = tk.Label(
-    frame1, text="Step1: Select the state from the dropdown menu below:")
-dropdown_label.pack()
-
-def selected_state(event):
-    selected_state = clicked.get()
-    print(selected_state)
+# Constant variables
 
 states = [
     "Alaska",
@@ -59,144 +34,195 @@ states = [
     "Wyoming"
 ]
 
-clicked = tk.StringVar()
-clicked.set(states[0])
-drop = tk.OptionMenu(frame1, clicked, *states, command=selected_state)
-drop.pack(pady=20)
+selected_states = {
+    "Alaska": "ak",
+    "Arizona": "az",
+    "California": "ca",
+    "Colorado": "co",
+    "Hawaii": "hi",
+    "Idaho": "id",
+    "Montana": "mt",
+    "New Mexico": "nm",
+    "Nevada": "nv",
+    "Oregon": "or",
+    "Utah": "ut",
+    "Washington": "wa",
+    "Wyoming": "wy"
+}
 
-# Frame 1: Enter the number of addresses needed
-entry_label = tk.Label(
-    frame1, text="Step 2: Enter the number of addresses you want to have:")
-entry_label.pack()
+# PART 1: Class to set up GUI VIEW
 
 
-ent_num = tk.Entry(frame1)
-ent_num.pack(pady=20)
+class GUI_view:
+    def set_title(self):
+        global window
+        window = tk.Tk()
+        window.title("Person Generator")
+        # Set app title
+        title = tk.Label(
+            text="Welcome to Person Generator!",
+            foreground="white",
+            background="black")
+        title.pack()
 
-def number():
+    def set_frames(self):
+        # Divide the window into three sections
+        global frame1
+        frame1 = tk.Frame(master=window, width=100, height=100, bg="red")
+        frame1.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
+
+        global frame2
+        frame2 = tk.Frame(master=window, width=100, height=100, bg="yellow")
+        frame2.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
+
+        global frame3
+        frame3 = tk.Frame(master=window, width=100, height=100)
+        frame3.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
+
+    def set_frame1_dropdown(self):
+        # Frame 1: dropdown menu for state selection
+        dropdown_label = tk.Label(
+            frame1, text="Step1: Select the state from the dropdown menu below:")
+        dropdown_label.pack()
+        global clicked
+        clicked = tk.StringVar()
+        clicked.set(states[0])
+        print(selected_state)
+        drop = tk.OptionMenu(frame1, clicked, *states, command=selected_state)
+        drop.pack(pady=20)
+
+    def set_frame1_num_entry(self):
+        # Frame 1: Enter the number of addresses needed
+        entry_label = tk.Label(
+            frame1, text="Step 2: Enter the number of addresses you want to have:")
+        entry_label.pack()
+        global ent_num
+        ent_num = tk.Entry(frame1)
+        ent_num.pack(pady=20)
+
+    def set_frame1_num_verify(self):
+
+        # Show result: show user's num input.
+        num_answer = tk.Label(frame1, text="")
+        num_answer.pack(pady=20)
+
+        # Add a submit button to verify input
+        submit_button = tk.Button(
+            frame1, text="Submit", command=lambda: verify_num(num_answer))
+        submit_button.pack(pady=5)
+
+        # Show Result: show user's state input in the text aera.
+        input_label = tk.Label(frame1, text="Your selected state is:")
+        input_label.pack()
+
+    def set_frame3_output(self):
+        # Frame 3: output area, use rolledtext
+        output_label = tk.Label(
+            frame3, text="Here are the results. Max displayed rows: 500. Export to see more rows).")
+        output_label.pack()
+        global text_area
+        text_area = scrolledtext.ScrolledText(frame3, height=30)
+        text_area.pack()
+
+    def set_output_display(self):
+        # set max displayed rows to 500
+        pd.set_option('display.max_rows', 500)
+        pd.set_option('display.max_columns', 10)
+
+    def set_frame2_button1(self):
+        # Button 1: Click to generate results
+        generate_button = tk.Button(
+            frame2,
+            text="Generate Results Now!",
+            width=20,
+            height=5,
+            bg="white",
+            fg="blue",
+            command=lambda: generate_results(text_area)
+        )
+        generate_button.grid(row=0, column=0, sticky="nsew")
+
+    def set_frame2_button2(self):
+        # Button 2: click to export results to csv with designated headers
+        export_button = tk.Button(
+            frame2,
+            text="Export Result to CSV",
+            width=20,
+            height=5,
+            bg="white",
+            fg="green",
+            command=export_results
+        )
+        export_button.grid(row=0, column=1, sticky="nsew")
+
+    def set_frame2_button3(self):
+        # Button 3: click to clear and restart
+        clear_button = tk.Button(
+            frame2,
+            text="Clear and Restart",
+            width=20,
+            height=5,
+            bg="white",
+            fg="red",
+            command=lambda: clear_input(text_area)
+        )
+        clear_button.grid(row=0, column=2, sticky="nsew")
+
+    def set_frame2_button4(self):
+        # Button 4: request data from population generator
+        request_button = tk.Button(
+            frame2,
+            text="Request Data from others",
+            width=20,
+            height=5,
+            bg="white",
+            fg="blue",
+            command=wait_for_results
+        )
+        request_button.grid(row=1, column=1, sticky="nsew")
+
+
+# PART 2: All events for elements on GUI:
+
+# PART 2.1:
+
+# Event for dropdown menu in frame 1
+def selected_state(event):
+    global selected_state
+    selected_state = clicked.get()
+    print(selected_state)
+
+# Event for submit button to verify inputs in frame1
+
+
+def verify_num(verify_area):
     try:
         int(ent_num.get())
-        num_answer.config(
+        verify_area.config(
             text="You entered a number. Please select a state now.")
     except ValueError:
-        num_answer.config(
+        verify_area.config(
             text="You did not enter a number. Please enter a number.")
     # show text of the state input
     my_state = tk.Label(frame1, text=clicked.get())
     my_state.pack()
 
 
-submit_button = tk.Button(frame1, text="Submit", command=number)
-submit_button.pack(pady=5)
-num_answer = tk.Label(frame1, text="")
-num_answer.pack(pady=20)
-
-# Result: show user's state input
-input_label = tk.Label(frame1, text="Your selected state is:")
-input_label.pack()
-
-
-# Frame 2: buttons for generate results, export results, clear input, send request to another app
-# button 1: generate result
-# event for generating result button
+# PART 2.2
+# Event for generating result button 1 in frame 2
+# PART 2.2-0: find correct csv file to read
 
 def read_csv():
-    # get user input
-    selected_state = clicked.get()
     # read csv file
-    if selected_state == "Alaska":
-        # open ak csv
-        csv_file = "ak.csv"
-    elif selected_state == "Arizona":
-        # open az csv
-        csv_file = "az.csv"
-    elif selected_state == "California":
-        # open ca csv
-        csv_file = "ca.csv"
-    elif selected_state == "Colorado":
-        # open co csv
-        csv_file = "co.csv"
-    elif selected_state == "Hawaii":
-        # open hi csv
-        csv_file = "hi.csv"
-    elif selected_state == "Idaho":
-        # open id csv
-        csv_file = "id.csv"
-    elif selected_state == "Montana":
-        # open mt csv
-        csv_file = "mt.csv"
-    elif selected_state == "Nex Mexico":
-        # open nm csv
-        csv_file = "nm.csv"
-    elif selected_state == "Nevada":
-        # open nv csv
-        csv_file = "nv.csv"
-    elif selected_state == "Oregon":
-        # open or csv
-        csv_file = "or.csv"
-    elif selected_state == "Utah":
-        # open ut csv
-        csv_file = "ut.csv"
-    elif selected_state == "Washington":
-        # open wa csv
-        csv_file = "wa.csv"
-    elif selected_state == "Wyoming":
-        # open wy csv
-        csv_file = "wy.csv"
+    for state in selected_states:
+        csv_file = selected_states[state] + ".csv"
     return csv_file
 
-csv_file = read_csv()
-
-
-def generate_results():
-    selected_num = int(ent_num.get())
-    data = pd.read_csv(csv_file, usecols=['NUMBER',
-                                          'STREET',
-                                          'UNIT',
-                                          'CITY',
-                                          'POSTCODE'])
-    selected_data = data.sample(selected_num)
-    global merged_data
-    merged_data = selected_data.assign(
-        input_state=clicked.get(),
-        input_number_to_generate=int(ent_num.get()),
-        output_content_type="street address",
-        output_content_value=selected_data.NUMBER.astype(str) + ' ' +
-        selected_data.STREET.astype(str) + ', ' +
-        selected_data.UNIT.astype(str) + ', ' +
-        selected_data.CITY.astype(str) + ', ' +
-        clicked.get() + ' ' +
-        selected_data.POSTCODE.astype(str)
-    )
-    # remove previously column
-    merged_data.drop(['NUMBER',
-                      'STREET',
-                      'UNIT',
-                      'CITY',
-                      'POSTCODE'],
-                     inplace=True, axis=1)
-    # TO BE FIXED: remove nan from each address
-    # drop index number
-    merged_data.reset_index(drop=True, inplace=True)
-    print(merged_data)
-    text_area.insert("1.0", merged_data)
-    return merged_data
-
-generate_button = tk.Button(
-    frame2,
-    text="Generate Results Now!",
-    width=20,
-    height=5,
-    bg="white",
-    fg="blue",
-    command=generate_results
-)
-generate_button.grid(row=0, column=0, sticky="nsew")
-
-
-# RECEIVE DATA:
+# PART 2.2-1 Communication with population generator
 # To receive output from the population generator
-# Get population number from Population generator and add an row to my output file
+# Get population number from Population generator
+
+
 def wait_for_results():
     """Connect to the Client as a listener and wait for the number (1% of the population) to be sent"""
     listener = Listener(('localhost', 6000), authkey=b'success')
@@ -206,208 +232,180 @@ def wait_for_results():
         while True:
             msg = conn.recv()
             if msg == 'close':
+                send_results(conn)
                 conn.close()
                 listener.close()
                 receiving = False
                 break
             else:
+                global returned_data
                 returned_data = str(msg)
                 print(returned_data)
-                #simply print out returned data in text area.
-                text_area.insert("1.0", "Data from Population Generator is:" + returned_data)
-                return returned_data
-    listener.close()
+                # simply print out returned data in text area.
+                text_area.insert(
+                    "1.0", "Data from Population Generator is:" + returned_data)
 
-# button 2: export results to csv with designated headers
+
+def async_wait_call():
+    wait_thread = threading.Thread(
+        target=wait_for_results, name="Await", args=[])
+    wait_thread.start()
+
+# PART 2.2-2 FUNCTIONS TO GENERATE RESULTS:
+
+
+def generate_results(text_area):
+    state = clicked.get()
+    num = int(ent_num.get())
+    global formatted_data
+    formatted_data = format_data(merge_data(randomize_data(num), state, num))
+    global sent_data
+    sent_data = csv_to_json(formatted_data)
+    # insert data to display area
+    text_area.insert("1.0", formatted_data)
+
+# 1) Randomly select data from the given csv.
+
+
+def randomize_data(num):
+    """Randomly select data"""
+    selected_num = num
+    usecols = ['NUMBER', 'STREET', 'UNIT', 'CITY', 'POSTCODE']
+    csv_file = read_csv()
+    data = pd.read_csv(csv_file, usecols=usecols)
+    selected_data = data.sample(selected_num)
+    return selected_data
+
+# 2) Merge data into required output.
+
+
+def merge_data(data, state, num):
+    """Merge data"""
+    merged_data = data.assign(
+        input_state=state,
+        input_number_to_generate=num,
+        output_content_type="street address",
+        output_content_value=data.NUMBER.astype(str) + ' ' +
+        data.STREET.astype(str) + ', ' +
+        data.UNIT.astype(str) + ', ' +
+        data.CITY.astype(str) + ', ' +
+        state + ' ' +
+        data.POSTCODE.astype(str)
+    )
+    return merged_data
+
+# 3) Format data into required csv format.
+
+
+def format_data(data):
+    """Format data into required csv format."""
+    # remove previously column
+    removed_cols = ['NUMBER', 'STREET', 'UNIT', 'CITY', 'POSTCODE']
+    data.drop(removed_cols, inplace=True, axis=1)
+    # drop index number
+    data.reset_index(drop=True, inplace=True)
+    return data
+
+# 4) Convert data into json file for sending to other's app.
+
+
+def csv_to_json(csv):
+    """convert merged_data to json file for sending to population generator."""
+    parsed = json.loads(csv.to_json(orient="index"))
+    json_data = json.dumps(parsed, indent=4)
+    return json_data
+
+# 5) convert to csv file
+
+
 def export_results():
     # create a new output csv file with new headers
-    merged_data.to_csv("output.csv", index=False)
+    formatted_data.to_csv("output.csv", index=False)
     # message to allow users to know the file is ready.
     file_exists = os.path.exists('output.csv')
     if file_exists == True:
         messagebox.showinfo(
             "CSV File Ready", "Congrats! Your CSV file is now in the same directory as the program.")
 
-export_button = tk.Button(
-    frame2,
-    text="Export Result to CSV",
-    width=20,
-    height=5,
-    bg="white",
-    fg="green",
-    command=export_results
-)
-export_button.grid(row=0, column=1, sticky="nsew")
+# PART 2.3: Event for button 3 to clear text input in frame 2
 
 
-# button 3: clear input button
-def clearInput():
+def clear_input(text_area):
     ent_num.delete(0, 'end')  # clear number entry box
     text_area.delete("1.0", "end")  # clear output result text box
 
-clear_button = tk.Button(
-    frame2,
-    text="Clear and Restart",
-    width=20,
-    height=5,
-    bg="white",
-    fg="red",
-    command=clearInput
-)
-clear_button.grid(row=0, column=2, sticky="nsew")
+# PART 2.4: Send data to population generator
+# Send json results to population generator
 
-# Frame 3: output area, use rolledtext
-output_label = tk.Label(
-    frame3, text="Here are the results. Max displayed rows: 500. Export to see more rows).")
-output_label.pack()
 
-text_area = scrolledtext.ScrolledText(frame3, height=30)
-text_area.pack()
-# set max displayed rows to 500
-pd.set_option('display.max_rows', 500)
-pd.set_option('display.max_columns', 10)
-#wait for results first
-wait_for_results()
-
-#Frame 3: add a button to send request to population generator
-# SENT DATA: To send data to population generator with a button
-# convert csv data to json format
-def csv_to_json(csvFilePath, jsonFilePath):
-    # convert csv file to json
-    jsonArray = []
-    # get output csv
-    with open(csvFilePath, encoding='utf-8') as csvfile:
-        csvReader = csv.DictReader(csvfile)
-    for row in merged_data:
-        jsonArray.append(row)
-    # convert json array to json string
-    with open(jsonFilePath, 'w', encoding='utf-8') as jsonfile:
-        jsonString = json.dumps(jsonArray, indent=4)
-        jsonfile.write(jsonString)
-
-# Send results to population generator
-def send_results():
-    csvFilePath = r'output.csv'
-    jsonFilePath = r'output.json'
-    # convert merged_data to json format
-    json_data = csv_to_json(csvFilePath, jsonFilePath)
-    print(json_data)
-    # Connect to Population Generator:
-    connect = Client(('localhost', 6000), authkey=b'success')
+def send_results(connect):
+    # Connect to the Person Generator:
     if connect:
-        connect.send(json_data)
-        connect.send("close")
-        connect.close()
-        # Waiting for the Response
-        wait_for_results()
+        # sent_data is the merged data converted into json file.
+        connect.send(sent_data)
+        connect.send('close')
     else:
         print("Error occurred while connecting to Population Generator.")
 
-send_button = tk.Button(
-    frame3,
-    text="Send Request to Another App",
-    width=10,
-    height=5,
-    bg="white",
-    fg="green",
-    command=send_results
-)
-send_button.pack()
 
-# Run  the event loop
-window.mainloop()
+# PART 4: NO-GUI MODE: Command line app to read input.csv and export output.csv
 
 
-# Command line app to read input and export output
-class auto_open_csv:
-    def auto_open_csv(self):
-        # open input.csv
-        inputFile = open(sys.argv[1], 'rb')
-        # outputFile = open(sys.argv[2], 'wb')
-        df = pd.read_csv(inputFile)
-        print("Import input.csv")
-        # get values of input state and numbers from input.csv
-        state = df['input_state'][0]
-        num = df['input_number_to_generate'][0]
-        global correct_csv
-        if state == "Alaska":
-            # open ak csv
-            correct_csv = "ak.csv"
-        elif state == "Arizona":
-            # open az csv
-            correct_csv = "az.csv"
-        elif state == "California":
-            # open ca csv
-            correct_csv = "ca.csv"
-        elif state == "Colorado":
-            # open co csv
-            correct_csv = "co.csv"
-        elif state == "Hawaii":
-            # open hi csv
-            correct_csv = "hi.csv"
-        elif state == "Idaho":
-            # open id csv
-            correct_csv = "id.csv"
-        elif state == "Montana":
-            # open mt csv
-            correct_csv = "mt.csv"
-        elif state == "Nex Mexico":
-            # open nm csv
-            correct_csv = "nm.csv"
-        elif state == "Nevada":
-            # open nv csv
-            correct_csv = "nv.csv"
-        elif state == "Oregon":
-            # open or csv
-            correct_csv = "or.csv"
-        elif state == "Utah":
-            # open ut csv
-            correct_csv = "ut.csv"
-        elif state == "Washington":
-            # open wa csv
-            correct_csv = "wa.csv"
-        elif state == "Wyoming":
-            # open wy csv
-            correct_csv = "wy.csv"
-        results = pd.read_csv(correct_csv, usecols=['NUMBER',
-                                                    'STREET',
-                                                    'UNIT',
-                                                    'CITY',
-                                                    'POSTCODE'])
-        print("Randomly selecting data...")
-        # copy code from above generate function
-        selected_data = results.sample(num)
-        global auto_data
-        auto_data = selected_data.assign(
-            input_state=state,
-            input_number_to_generate=num,
-            output_content_type="street address",
-            output_content_value=selected_data.NUMBER.astype(str) + ' ' +
-            selected_data.STREET.astype(str) + ', ' +
-            selected_data.UNIT.astype(str) + ', ' +
-            selected_data.CITY.astype(str) + ', ' +
-            clicked.get() + ' ' +
-            selected_data.POSTCODE.astype(str)
-        )
-        # remove previously column
-        auto_data.drop(['NUMBER',
-                        'STREET',
-                        'UNIT',
-                        'CITY',
-                        'POSTCODE'],
-                       inplace=True, axis=1)
-        # TO BE FIXED: remove nan from each address
-        # drop index number
-        auto_data.reset_index(drop=True, inplace=True)
-        print(auto_data)
-        print("Finished selecting data.")
-        # copy from above export function
-        outputFile = auto_data.to_csv("output.csv", index=False)
-        print("Your CSV file is ready in the same directory as program.")
+# Functions for command line mode
+
+def auto_open_csv():
+    # open input.csv
+    inputFile = open(sys.argv[1], 'rb')
+    # outputFile = open(sys.argv[2], 'wb')
+    df = pd.read_csv(inputFile)
+    print("Importing input.csv")
+    # get values of input state and numbers from input.csv
+    global state
+    state = df['input_state'][0]
+    global num
+    num = df['input_number_to_generate'][0]
+    # get correct csv
+    read_csv()
 
 
-obj = auto_open_csv()
-obj.auto_open_csv()
+def generate_csv_results():
+    print("Randomly selecting data...")
+    selected_data = randomize_data(num)
+    global merged_data
+    merged_data = merge_data(selected_data, state, num)
+    formatted_data = format_data(merged_data)
+    print(formatted_data)
+    print("Finished selecting data.")
+    formatted_data.to_csv("output.csv", index=False)
+    print("Your CSV file is ready in the same directory as program.")
 
 
+def mode_switch():
+    """Check to see if there is an input file"""
+    if len(sys.argv) > 1:
+        # Read CSV file and process it:
+        auto_open_csv()
+        generate_csv_results()
+    else:
+        """If no input file, create GUI"""
+        view = GUI_view()
+        view.set_title()
+        view.set_frames()
+        view.set_frame1_dropdown()
+        view.set_frame1_num_entry()
+        view.set_frame1_num_verify()
+        view.set_frame3_output()
+        view.set_output_display()
+        view.set_frame2_button1()
+        view.set_frame2_button2()
+        view.set_frame2_button3()
+        view.set_frame2_button4()
+        async_wait_call()
+        # Run  the event loop
+        window.mainloop()
+    exit()
 
+
+if __name__ == '__main__':
+
+    mode_switch()
